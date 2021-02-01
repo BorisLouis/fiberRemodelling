@@ -2,17 +2,18 @@ clear;
 close all;
 clc;
 %% User Input
-file.path = 'D:\Documents\Unif\PhD\2020-Data\07- July\MAX\Example data for Boris_1k_10nm_TFM\T4';
+file.path = 'D:\Documents\Unif\PhD\2021-Data\01 - Jan\28 - Hongbo\Boris_Hongbo\cell1\SplitData';
 file.ext  = '.tif';
 
 info.pxSizeXY = 568; 
 info.pxSizeZ  = 569;
 
 %Give info about the channels, the word needs to be lowercase with no typos
-chan.ch00 = 'cell';
-chan.ch01 = 'polymer';
-chan.ch02 = 'nucleus';
-chan.ch03 = 'ignore';
+%care that the
+chan.c001 = 'polymer';
+chan.c002 = 'cell';
+chan.c003 = 'ignore';
+chan.c004 = 'ignore';
 
 %% Loading data
 stack = Core.fiberRemodelling(file,info);
@@ -24,12 +25,22 @@ stack.showChannel;
 %% analysis occurs here
 
 Mask = stack.calc3DMask();
+
 %%
 stack.plotCellContour();
 
 %% 3D
 %this step takes time so we don't really run it
-%stack.renderCell3D();
+stack.renderCell3D(1);
+
+%% Gel network
+
+
+
+
+
+
+
 
 %% Intensity analysis
 weight = [info.pxSizeXY,info.pxSizeXY,info.pxSizeZ];

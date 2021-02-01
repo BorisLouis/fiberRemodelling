@@ -37,10 +37,7 @@ classdef fiberRemodelling < handle
                 fileList = Core.fiberRemodelling.getFileInPath(path,ext);
                 %get the different channel from the data
                 channel  = obj.retrieveChannel(fileList,chan);
-                
-                pxSizeXY = obj.info.pxSizeXY;
-                pxSizeZ  = obj.info.pxSizeZ;
-                                
+                                           
                 %save the channel as matlab variable for the future
                 filename = [obj.raw.path filesep 'channels.mat'];
                 save(filename,'channel','-v7.3');
@@ -71,13 +68,14 @@ classdef fiberRemodelling < handle
             field = fieldnames(channel);
             
             nField = length(field);
-            frameToShow = round(size(channel.cell,3)/2);
+            sliceToShow = round(size(channel.cell,3)/2);
+            frameToShow = round(size(channel.cell,4)/2);
             figure
             for i = 1:nField
                 subplot(1,nField,i)
                 currChan = channel.(field{i});
                 try
-                    imagesc(currChan(:,:,frameToShow))
+                    imagesc(currChan(:,:,sliceToShow,frameToShow))
                 catch
                     
                 end
@@ -102,90 +100,100 @@ classdef fiberRemodelling < handle
             else
                 data = data1+data2;
             end
-            
-            % Gaussian filtering
-            S = 2;
-            % size of pixel in z vs x/y
-            pixZ  = 4;
-            zFactor = 2;
-            sigma = [S,S,S*zFactor/pixZ];
-            IMs = imgaussfilt3(data, sigma);
-            disp('DONE with filtering ------------')
+            allMask = zeros(size(data));
+            for i = 1:size(data,4)
+                disp(['Analyzing Frame ' num2str(i) ' / ' num2str(size(data,4))]);
+                currData = data(:,:,:,i);
+                % Gaussian filtering
+                S = 2;
+                % size of pixel in z vs x/y
+                pixZ  = 4;
+                zFactor = 2;
+                sigma = [S,S,S*zFactor/pixZ];
+                IMs = imgaussfilt3(currData, sigma);
+                disp('DONE with filtering ------------')
 
-            gBW = imbinarize(IMs,'adaptive','Sensitivity',0.2);
-            %Segmentation
-          %  gBW = imbinarize(IMs);
-            se = strel('disk',10);
-            gBW = imopen(gBW,se);
-            se = strel('disk',5);
-            gBW = imclose(gBW,se);
+                gBW = imbinarize(IMs,'adaptive','Sensitivity',0.2);
+                %Segmentation
+              %  gBW = imbinarize(IMs);
+                se = strel('disk',10);
+                gBW = imopen(gBW,se);
+                se = strel('disk',5);
+                gBW = imclose(gBW,se);
 
-            %storing temporary results             
-            dataStorage.BinaryTiff(fileName,gBW);
-          
-            disp('Extracting Contour')
-            %here we obtain the cell contour
-            contour = obj.getCellContour(gBW);
-            obj.results.contour = contour;
-            
-            %% Extract contour
-            fContour = [];
-            for z = 1 :size(IMs,3)
-                if ~isempty(contour{z})
-                    for i = 1:length(contour{z})
-                    
-                        fContour = [fContour ; contour{z}{i}(:,1) contour{z}{i}(:,2) ones(length(contour{z}{i}(:,1)),1)*z];
-                    
+                %storing temporary results             
+                dataStorage.BinaryTiff(fileName,gBW);
+
+                disp('Extracting Contour')
+                %here we obtain the cell contour
+                contour = obj.getCellContour(gBW);
+                obj.results.contour{i} = contour;
+
+                %% Extract contour
+                fContour = [];
+                for z = 1 :size(IMs,3)
+                    if ~isempty(contour{z})
+                        for j = 1:length(contour{z})
+
+                            fContour = [fContour ; contour{z}{j}(:,1) contour{z}{j}(:,2) ones(length(contour{z}{j}(:,1)),1)*z];
+
+                        end
                     end
+                end   
+                %% building 3D mask
+                mask3D = zeros(size(IMs));
+                for j = 1:size(IMs,3)
+                    idx = find(fContour(:,3)==j);
+                    mask3D(:,:,j) = poly2mask(fContour(idx,2),fContour(idx,1),size(IMs,1),size(IMs,2));
                 end
-            end   
-            %% building 3D mask
-            mask3D = zeros(size(IMs));
-            for i = 1:size(IMs,3)
-                idx = find(fContour(:,3)==i);
-                mask3D(:,:,i) = poly2mask(fContour(idx,2),fContour(idx,1),size(IMs,1),size(IMs,2));
-            end
-            
-            %% Cleaning mask
-            
-            test = bwlabeln(mask3D);
-            data = regionprops3(test,'Volume','VoxelList','VoxelIdxList');
-            %Delete mask region that are extended only on 1 z slice
-            for i = 1:height(data)
-               currentIdx = data.VoxelList{i,:};
-               if length(unique(currentIdx(:,3)))>1
-                   
-               else
-                   idx2Delete = data.VoxelIdxList{i,:};
-                   mask3D(idx2Delete) = 0;
-               end
-                
-            end
-            
-            %Keep only the main mask region (delete all smaller regions)
-            maskBW = bwlabeln(mask3D);
-            
-            maskProps = regionprops3(test,'vol','VoxelIDXList');
-            
-            if height(maskProps)>1
-                [val,idx] = max(maskProps.Volume);
-                maskProps(idx,:) = [];
-                
-                for i = 1 : height(maskProps)
-                    mask3D(maskProps.VoxelIdxList{i}) = 0;
+
+                %% Cleaning mask
+
+                test = bwlabeln(mask3D);
+                volProps = regionprops3(test,'Volume','VoxelList','VoxelIdxList');
+                %Delete mask region that are extended only on 1 z slice
+                for j = 1:height(volProps)
+                   currentIdx = volProps.VoxelList{j,:};
+                   if length(unique(currentIdx(:,3)))>1
+
+                   else
+                       idx2Delete = volProps.VoxelIdxList{j,:};
+                       mask3D(idx2Delete) = 0;
+                   end
+
                 end
+
+                %Keep only the main mask region (delete all smaller regions)
+                maskBW = bwlabeln(mask3D);
+
+                maskProps = regionprops3(test,'vol','VoxelIDXList');
+
+                if height(maskProps)>1
+                    [~,idx] = max(maskProps.Volume);
+                    maskProps(idx,:) = [];
+
+                    for j = 1 : height(maskProps)
+                        mask3D(maskProps.VoxelIdxList{j}) = 0;
+                    end
+
+                end
+                maskBW = bwlabeln(mask3D);
+                assert(length(unique(maskBW))==2,'More than one region in the mask, something is strange')
                 
+                allMask(:,:,:,i) = mask3D;
+            
             end
-            maskBW = bwlabeln(mask3D);
-            assert(length(unique(maskBW))==2,'More than one region in the mask, something is strange')
-                        
-            obj.results.mask = logical(mask3D);       
+            obj.results.mask = logical(allMask);       
             
         end
         
-        function plotCellContour(obj)
+        function plotCellContour(obj,idx)
             
-            contour = obj.results.contour;
+            if nargin<2
+                idx = 1;
+            end
+            
+            contour = obj.results.contour{idx};
             figure(2)
             hold on
             for i=1:length(contour)
@@ -198,14 +206,17 @@ classdef fiberRemodelling < handle
 
         end
         
-        function renderCell3D(obj)
+        function renderCell3D(obj,idx)
             %compile c code for smoothing
             mex +rendering3D\smoothpatch_curvature_double.c -v
             mex +rendering3D\smoothpatch_inversedistance_double.c -v
             mex +rendering3D\vertex_neighbours_double.c -v
             
+            if nargin <2
+                idx = 1;
+            end
             
-            data2Render = obj.results.mask;
+            data2Render = obj.results.mask(:,:,:,idx);
             iSurface = isosurface(data2Render,1/2);
             
             % smoothing using compiled c code
@@ -311,14 +322,35 @@ classdef fiberRemodelling < handle
             %check movie size
             [movieInfo] = Load.Movie.tif.getinfo([fileList(1).folder filesep fileList(1).name]);
             for i = 1: length(fields)
-                Misc.multiWaitbar('Channel Extraction',i/length(fields))
+                Misc.multiWaitbar('Channel Extraction',i/length(fields));
                 index2Channel  = contains(lower({fileList.name}),fields{i},'IgnoreCase',true);
-                currChanList  = fileList(index2Channel);
+                currChanList   = fileList(index2Channel);
+                endFile = fileList(end).name;
                 
-                currChan = zeros(movieInfo.Length,movieInfo.Width,length(currChanList));
+                %get max frame and max z layer
+                idx2T  = strfind(lower(fileList(1).name),'t0');
+                if isempty(idx2T)
+                    maxT = 1;
+                else
+                    maxT   = str2double(endFile(idx2T+1:idx2T+3));
+                end
+                
+                idx2Z  = strfind(lower(fileList(1).name),'z0');
+                if isempty(idx2Z)
+                    maxZ = 1;
+                else
+                    maxZ   = str2double(endFile(idx2Z+1:idx2Z+3));
+                end
+                
+                
+                currChan = zeros(movieInfo.Length,movieInfo.Width,maxZ,maxT);
                 for j = 1:length(currChanList)
                     currPath = [currChanList(j).folder, filesep, currChanList(j).name];
-                    currChan(:,:,j) = Load.Movie.tif.getframes(currPath,1);
+                    
+                    nZ = str2double(currChanList(j).name(idx2Z+1:idx2Z+3));
+                    nT = str2double(currChanList(j).name(idx2T+1:idx2T+3));
+                    
+                    currChan(:,:,nZ,nT) = Load.Movie.tif.getframes(currPath,1);
                     
                     Misc.multiWaitbar('Frames',j/length(currChanList));
                     
@@ -334,11 +366,14 @@ classdef fiberRemodelling < handle
             %the two max
             channel.cell    = tmp.(fields{cellIDX}); %normalizing factor
             channel.polymer = tmp.(fields{polIDX});
-            if ~isempty(tmp.(fields{nucleusIDX}))
-                channel.nucleus = tmp.(fields{nucleusIDX});
-            else
+            
+            if all(nucleusIDX==0)
                 channel.nucleus = [];
+            else
+                channel.nucleus = tmp.(fields{nucleusIDX});
+               
             end
+            
             assert(all(size(channel.cell)==size(channel.polymer)),'Something is wrong with the size of the channels')
             
         end
