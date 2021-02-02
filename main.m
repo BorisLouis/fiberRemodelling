@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 %% User Input
-file.path = 'D:\Documents\Unif\PhD\2021-Data\01 - Jan\28 - Hongbo\Boris_Hongbo\cell1\SplitData';
+file.path = 'D:\Documents\Unif\PhD\2021-Data\01 - Jan\28 - Hongbo\Boris_Hongbo\cell2\SplitData';
 file.ext  = '.tif';
 
 info.pxSizeXY = 568; 
@@ -16,6 +16,8 @@ chan.c003 = 'ignore';
 chan.c004 = 'ignore';
 
 %% Loading data
+rendering3D.compile3DRendering();
+
 stack = Core.fiberRemodelling(file,info);
 
 stack.loadData(chan);
@@ -35,10 +37,12 @@ stack.renderCell3D(1);
 
 %% Gel network
 
+stack.getDensifiedNetwork();
 
 
+%% 
 
-
+stack.renderCellPolymer3D(5)
 
 
 

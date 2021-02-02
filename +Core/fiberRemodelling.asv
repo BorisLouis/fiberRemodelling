@@ -306,10 +306,7 @@ classdef fiberRemodelling < handle
 
                 % remove small object
                 gBW = bwareaopen(gBW,1000);
-               
-                se = strel('disk',5);
-                gBW = imclose(gBW,se);
-
+                
                 
                 disp('Extracting Contour')
                 %here we obtain the cell contour
@@ -365,7 +362,14 @@ classdef fiberRemodelling < handle
                 end
                 maskBW = bwlabeln(mask3D);
                 assert(length(unique(maskBW))==2,'More than one region in the mask, something is strange')
-                
+
+                %subtract cell mask
+                cellMask = obj.results.cellMask(:,:,:,i);
+
+                mask3D = mask3D-cellMask;
+
+                mask3D(mask3D<0) = 0;
+
                 allMask(:,:,:,i) = mask3D;
 
             end
@@ -390,19 +394,19 @@ classdef fiberRemodelling < handle
             cellsmoothISurface.vertices(:,1) = (cellsmoothISurface.vertices(:,1));
             cellsmoothISurface.vertices(:,2) = (cellsmoothISurface.vertices(:,2));
             cellsmoothISurface.vertices(:,3) = (cellsmoothISurface.vertices(:,3));
-            figure(idx)
-            hold on
+            
             p2 = patch(cellsmoothISurface);
             p2.FaceColor = [0,1,0];
             p2.EdgeColor = 'none';
             
             clear cellsmoothISurface;
-                      
+            
+            
             data2Render = obj.results.polymerMask(:,:,:,idx);
             iSurface = isosurface(data2Render,1/2);
             
             % smoothing using compiled c code
-            polsmoothISurface = rendering3D.smoothpatch(iSurface,0,1);
+            polsmoothISurface = rendering3D.smoothpatch(iSurface,0,10);
             %comnvert to px
             polsmoothISurface.vertices(:,1) = (polsmoothISurface.vertices(:,1));
             polsmoothISurface.vertices(:,2) = (polsmoothISurface.vertices(:,2));
@@ -414,8 +418,7 @@ classdef fiberRemodelling < handle
             p3 = patch(polsmoothISurface);
             p3.FaceColor = [0.7 0.7 0.7];
             p3.FaceAlpha = 0.5;
-            p3.EdgeColor = 'none';
-           
+            
             view(3);
             axis tight
             camlight
