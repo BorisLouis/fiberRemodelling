@@ -40,10 +40,17 @@ stack.renderCell3D(1);
 stack.getDensifiedNetwork();
 
 
+%% Display polymer and cell in 3D
+stack.renderCellPolymer3D(1)
+
+
 %% 
 
-stack.renderCellPolymer3D(5)
+[Volumes] = stack.calcVolumes();
 
+
+%%
+[NOP]     = stack.calcNOP();
 
 
 %% Intensity analysis

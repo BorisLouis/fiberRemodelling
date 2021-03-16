@@ -86,7 +86,7 @@ classdef fiberRemodelling < handle
             
         end
         
-        function [mask3D] = calc3DMask(obj)
+        function [allMask] = calc3DMask(obj)
             disp('Starting mask extraction...')
             %fileName = [obj.raw.path filesep 'SegmentedCell.tif'];
             
@@ -118,13 +118,24 @@ classdef fiberRemodelling < handle
                 disp('DONE with filtering ------------')
 
                 gBW = imbinarize(IMs,'adaptive','Sensitivity',0.2);
+                
+                gBW = bwareaopen(gBW,100);
                 %Segmentation
               %  gBW = imbinarize(IMs);
-                se = strel('disk',10);
-                gBW = imopen(gBW,se);
+              
+%                 se = strel('disk',10);
+%                 gBW = imopen(gBW,se);
+
                 se = strel('disk',5);
                 gBW = imclose(gBW,se);
-
+                
+                %find largest BW
+                prop = regionprops3(gBW,'Volume','VoxelIDXList');
+                
+                voxelIdx = prop.VoxelIdxList{prop.Volume==max(prop.Volume)};
+                gBW = zeros(size(gBW));
+                gBW(voxelIdx)= 1;
+                                
                 %storing temporary results             
             %    dataStorage.BinaryTiff(fileName,gBW);
 
@@ -133,58 +144,7 @@ classdef fiberRemodelling < handle
                 contour = obj.getCellContour(gBW);
                 obj.results.cellContour{i} = contour;
 
-                %% Extract contour
-                fContour = [];
-                for z = 1 :size(IMs,3)
-                    if ~isempty(contour{z})
-                        for j = 1:length(contour{z})
-
-                            fContour = [fContour ; contour{z}{j}(:,1) contour{z}{j}(:,2) ones(length(contour{z}{j}(:,1)),1)*z];
-
-                        end
-                    end
-                end   
-                %% building 3D mask
-                mask3D = zeros(size(IMs));
-                for j = 1:size(IMs,3)
-                    idx = find(fContour(:,3)==j);
-                    mask3D(:,:,j) = poly2mask(fContour(idx,2),fContour(idx,1),size(IMs,1),size(IMs,2));
-                end
-
-                %% Cleaning mask
-
-                test = bwlabeln(mask3D);
-                volProps = regionprops3(test,'Volume','VoxelList','VoxelIdxList');
-                %Delete mask region that are extended only on 1 z slice
-                for j = 1:height(volProps)
-                   currentIdx = volProps.VoxelList{j,:};
-                   if length(unique(currentIdx(:,3)))>1
-
-                   else
-                       idx2Delete = volProps.VoxelIdxList{j,:};
-                       mask3D(idx2Delete) = 0;
-                   end
-
-                end
-
-                %Keep only the main mask region (delete all smaller regions)
-                maskBW = bwlabeln(mask3D);
-
-                maskProps = regionprops3(test,'vol','VoxelIDXList');
-
-                if height(maskProps)>1
-                    [~,idx] = max(maskProps.Volume);
-                    maskProps(idx,:) = [];
-
-                    for j = 1 : height(maskProps)
-                        mask3D(maskProps.VoxelIdxList{j}) = 0;
-                    end
-
-                end
-                maskBW = bwlabeln(mask3D);
-                assert(length(unique(maskBW))==2,'More than one region in the mask, something is strange')
-                
-                allMask(:,:,:,i) = mask3D;
+                allMask(:,:,:,i) = gBW;
             
             end
             obj.results.cellMask = logical(allMask);       
@@ -192,6 +152,7 @@ classdef fiberRemodelling < handle
         end
         
         function plotCellContour(obj,idx)
+            assert(isfield(obj.results,'cellContour'),'No cell mask found run calc3DMask first');
             
             if nargin<2
                 idx = 1;
@@ -211,6 +172,8 @@ classdef fiberRemodelling < handle
         end
         
         function renderCell3D(obj,idx)
+            assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
+        
             if nargin <2
                 idx = 1;
             end
@@ -273,6 +236,8 @@ classdef fiberRemodelling < handle
            
                 disp(['Analyzing Frame ' num2str(i) ' / ' num2str(size(data,4))]);
                 currData = data(:,:,:,i);
+                currData = medfilt3(currData);
+                
                 % Gaussian filtering
                 S = 2;
                 % size of pixel in z vs x/y
@@ -301,14 +266,25 @@ classdef fiberRemodelling < handle
 
                 % binarize the image based on max value in corners
                 gBW = currData>stat.max;
+%                 thresh = adaptthresh(uint16(IMs),0.4,'NeighborhoodSize',[101 101 11]);
+%                 gBW = imbinarize(uint16(IMs),thresh);
+                %gBW = imbinarize(uint16(IMs),'adaptive','Sensitivity',0.4);
                 % remove salt and pepper noise
                 gBW = medfilt3(gBW);
 
                 % remove small object
-                gBW = bwareaopen(gBW,1000);
-               
-                se = strel('disk',5);
-                gBW = imclose(gBW,se);
+%                 gBW = bwareaopen(gBW,1000);
+%                
+%                 se = strel('disk',5);
+%                 gBW = imclose(gBW,se);
+%                 
+                
+                %get only biggest one
+                prop = regionprops3(gBW,'Volume','Voxelidxlist');
+                
+                voxelIdx = prop.VoxelIdxList{prop.Volume==max(prop.Volume)};
+                gBW = zeros(size(gBW));
+                gBW(voxelIdx)= 1;
 
                 
                 disp('Extracting Contour')
@@ -316,66 +292,21 @@ classdef fiberRemodelling < handle
                 contour = obj.getCellContour(gBW);
                 obj.results.polymerContour{i} = contour;
 
-                %% Extract contour
-                fContour = [];
-                for z = 1 :size(IMs,3)
-                    if ~isempty(contour{z})
-                        for j = 1:length(contour{z})
-
-                            fContour = [fContour ; contour{z}{j}(:,1) contour{z}{j}(:,2) ones(length(contour{z}{j}(:,1)),1)*z];
-
-                        end
-                    end
-                end   
+         
                 %% building 3D mask
-                mask3D = zeros(size(IMs));
-                for j = 1:size(IMs,3)
-                    idx = find(fContour(:,3)==j);
-                    mask3D(:,:,j) = poly2mask(fContour(idx,2),fContour(idx,1),size(IMs,1),size(IMs,2));
-                end
-
-                %% Cleaning mask
-                test = bwlabeln(mask3D);
-                volProps = regionprops3(test,'Volume','VoxelList','VoxelIdxList');
-                %Delete mask region that are extended only on 1 z slice
-                for j = 1:height(volProps)
-                   currentIdx = volProps.VoxelList{j,:};
-                   if length(unique(currentIdx(:,3)))>1
-
-                   else
-                       idx2Delete = volProps.VoxelIdxList{j,:};
-                       mask3D(idx2Delete) = 0;
-                   end
-
-                end
+            
                 
-                %Keep only the main mask region (delete all smaller regions)
-                maskBW = bwlabeln(mask3D);
-
-                maskProps = regionprops3(test,'vol','VoxelIDXList');
-
-                if height(maskProps)>1
-                    [~,idx] = max(maskProps.Volume);
-                    maskProps(idx,:) = [];
-
-                    for j = 1 : height(maskProps)
-                        mask3D(maskProps.VoxelIdxList{j}) = 0;
-                    end
-
-                end
-                maskBW = bwlabeln(mask3D);
-                assert(length(unique(maskBW))==2,'More than one region in the mask, something is strange')
-                
-                allMask(:,:,:,i) = mask3D;
+                allMask(:,:,:,i) = gBW;
 
             end
             
-            obj.results.polymerMask = allMask;
+            obj.results.polymerMask = logical(allMask);
             
         end
-        
-        
+                
         function renderCellPolymer3D(obj,idx)
+            assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
+            assert(isfield(obj.results,'polymerMask'),'No polymer mask found run calc3DMask first');
             
             if nargin <2
                 idx = 1;
@@ -424,10 +355,79 @@ classdef fiberRemodelling < handle
             
         end
         
+        function [Volume] = calcVolumes(obj)
+            assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
+            assert(isfield(obj.results,'polymerMask'),'No polymer mask found run calc3DMask first');
+            
+            cellMask = obj.results.cellMask;
+            polymerMask = obj.results.polymerMask;
+            Volume.cell = zeros(1,size(cellMask,4));
+            Volume.polymer = zeros(1,size(cellMask,4));
+            pxSize = obj.info.pxSizeXY/1000;
+            pxSizeZ = obj.info.pxSizeZ/1000;
+            
+            voxelSize = pxSize^2*pxSizeZ;
+            for i = 1:size(cellMask,4)
+                currentCell = cellMask(:,:,:,i);
+                currentPolymer = polymerMask(:,:,:,i);
+                
+                Volume.cell(i) = sum(currentCell(:))*voxelSize;
+                Volume.polymer(i) = sum(currentPolymer(:))*voxelSize;
+                
+            end
+            figure
+                subplot(1,2,1)
+                    plot(Volume.cell)
+                    ylim([0 1.5*max(Volume.cell)])
+                    axis square
+                    xlabel('Time')
+                    ylabel('Volume (\mum^3)')
+                    title('Cell')
+
+                subplot(1,2,2)
+                    plot(Volume.polymer)
+                    ylim([0 1.2*max(Volume.polymer)])
+                    axis square
+                    xlabel('Time')
+                    ylabel('Volume (\mum^3)')
+                    title('Densified polymer')
+
+        end
+        
+        function [NOP]    = calcNOP(obj)
+            assert(isfield(obj.results,'polymerMask'),'No polymer mask found run calc3DMask first');
+            
+            polymerMask = obj.results.polymerMask;
+            data        = obj.channels.polymer;
+            gradx = zeros(size(data));
+            grady = gradx;
+            gradz = grady;
+            
+            for i = 1:size(data,4)
+            
+                [Gx,Gy,Gz]  = imgradientxyz(data(:,:,:,i));
+                 
+                gradx(:,:,:,i) = Gx;
+                grady(:,:,:,i) = Gy;
+                gradz(:,:,:,i) = Gz;
+                
+                tmpGrad = sqrt(Gx.^2+Gy.^2+Gz.^2);
+                
+                NOP.polymer{i} = tmpGrad(polymerMask(:,:,:,i)==1);
+                NOP.bkg{i}     = tmpGrad(polymerMask(:,:,:,i)==0);
+                
+            end
+            
+            
+            
+            
+            
+        end
+        
         function intensityDistrib(obj,weight,step)
             
             assert(~isempty(obj.channels),'Data not found, please loadData() before using this function')
-            assert(~isempty(obj.results.cellMask),'mask not found, please calc3DMask before using this function')
+            assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
             data = obj.channels.polymer;
             mask = obj.results.cellMask;
             
@@ -597,15 +597,10 @@ classdef fiberRemodelling < handle
               
                 if isempty(idx2BiggestArea)
                 else
-                    %kill all the other area found
+                    
                     [pContour] = bwboundaries(currBW);
-                    contour{i} = {pContour{idx2BiggestArea}};
-
-                    idx = find(cell2mat({cBWarea.Area})>5000);
-                    idx(idx==idx2BiggestArea) = [];
-
-                    for j = 1:length(idx)
-                        contour{i}{j+1} = pContour{idx(j)};
+                    for j = 1:length(pContour)
+                        contour{i}{j} = pContour{j};
                     end
                 end
             end
