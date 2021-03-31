@@ -135,7 +135,8 @@ classdef fiberRemodelling < handle
                 voxelIdx = prop.VoxelIdxList{prop.Volume==max(prop.Volume)};
                 gBW = zeros(size(gBW));
                 gBW(voxelIdx)= 1;
-                                
+                
+                gBW = imfill(gBW);
                 %storing temporary results             
             %    dataStorage.BinaryTiff(fileName,gBW);
 
@@ -262,18 +263,18 @@ classdef fiberRemodelling < handle
                 stat.mean = mean(cornerMat(:));
                 stat.median = median(cornerMat(:));
                 %get maximum of corner without outliers
-                stat.max    = max(rmoutliers(cornerMat(:)));
+                stat.max    = prctile(cornerMat(:),99);
 
                 % binarize the image based on max value in corners
                 gBW = currData>stat.max;
-%                 thresh = adaptthresh(uint16(IMs),0.4,'NeighborhoodSize',[101 101 11]);
-%                 gBW = imbinarize(uint16(IMs),thresh);
+                %thresh = adaptthresh(uint16(IMs),0.,'NeighborhoodSize',[51 51 11]);
+                %gBW2 = imbinarize(uint16(IMs),thresh);
                 %gBW = imbinarize(uint16(IMs),'adaptive','Sensitivity',0.4);
                 % remove salt and pepper noise
-                gBW = medfilt3(gBW);
+                %gBW = medfilt3(gBW);
 
                 % remove small object
-%                 gBW = bwareaopen(gBW,1000);
+         
 %                
 %                 se = strel('disk',5);
 %                 gBW = imclose(gBW,se);
@@ -285,7 +286,11 @@ classdef fiberRemodelling < handle
                 voxelIdx = prop.VoxelIdxList{prop.Volume==max(prop.Volume)};
                 gBW = zeros(size(gBW));
                 gBW(voxelIdx)= 1;
-
+                
+                se = strel('sphere',5);
+                gBW = imclose(gBW,se);
+                
+                gBW = imfill(gBW);
                 
                 disp('Extracting Contour')
                 %here we obtain the cell contour
@@ -316,14 +321,14 @@ classdef fiberRemodelling < handle
             iSurface = isosurface(data2Render,1/2);
             
             % smoothing using compiled c code
-            cellsmoothISurface = rendering3D.smoothpatch(iSurface,0,10);
-            %comnvert to px
-            cellsmoothISurface.vertices(:,1) = (cellsmoothISurface.vertices(:,1));
-            cellsmoothISurface.vertices(:,2) = (cellsmoothISurface.vertices(:,2));
-            cellsmoothISurface.vertices(:,3) = (cellsmoothISurface.vertices(:,3));
+%             cellsmoothISurface = rendering3D.smoothpatch(iSurface,0,10);
+%             %comnvert to px
+%             cellsmoothISurface.vertices(:,1) = (cellsmoothISurface.vertices(:,1));
+%             cellsmoothISurface.vertices(:,2) = (cellsmoothISurface.vertices(:,2));
+%             cellsmoothISurface.vertices(:,3) = (cellsmoothISurface.vertices(:,3));
             figure(idx)
             hold on
-            p2 = patch(cellsmoothISurface);
+            p2 = patch(iSurface);
             p2.FaceColor = [0,1,0];
             p2.EdgeColor = 'none';
             
@@ -430,54 +435,61 @@ classdef fiberRemodelling < handle
             assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
             data = obj.channels.polymer;
             mask = obj.results.cellMask;
-            
-            EDM = DistMap.calcWeightedDistMap(mask,weight);
-            
-            edgeMin = min(EDM(:));
-            edgeMax = max(EDM(:));
-            
-            binEdges = edgeMin:step:edgeMax;
-            
-            intRes = table(zeros(length(binEdges)-1,1),zeros(length(binEdges)-1,1),...
-                'VariableNames',{'Distance','Intensity'});
-            
-            %Calculate the intensity vs distance from the cell
-            for i = 1: length(binEdges)-1
-               
-                idx = and(EDM>=binEdges(i), EDM<binEdges(i+1));
-                
-                currDistance = (binEdges(i)-binEdges(1) +binEdges(i+1))/2;
-                currentIntensity = mean(data(idx));
-                
-                intRes.Distance(i) = currDistance;
-                intRes.Intensity(i) = currentIntensity;
-                
-            end
-            
-            intRes.Mean = ones(length(intRes.Distance),1)*mean(data(EDM>0));
-            intRes.Median = ones(length(intRes.Distance),1)*median(data(EDM>0));
-            
-            obj.results.intRes = intRes;
-            %save the intensity curve
-            filename = [obj.raw.path filesep 'IntensityResults.mat'];
-            save(filename,'intRes');
-            
+          
             figure
-            plot(intRes.Distance,intRes.Intensity);
-            xlabel('Distance (nm)')
-            ylabel('Average intensity per pixel')
-            axis square
-            box on
             hold on
-            
-            plot(intRes.Distance,ones(1,length(intRes.Distance))*mean(data(EDM>0)))
-            plot(intRes.Distance,ones(1,length(intRes.Distance))*median(data(EDM>0)))
-            legend({'Experiment', 'Mean', 'Median'})
-            
-            disp('=====> DONE <=====');
+            leg = cell(size(mask,4),1);
+            for j = 1:size(mask,4)
+                currentMask = mask(:,:,:,j);
+                EDM = DistMap.calcWeightedDistMap(currentMask,weight);
+
+                edgeMin = min(EDM(:));
+                edgeMax = max(EDM(:));
+
+                binEdges = edgeMin:step:edgeMax;
+
+                intRes = table(zeros(length(binEdges)-1,1),zeros(length(binEdges)-1,1),...
+                    'VariableNames',{'Distance','Intensity'});
+
+                %Calculate the intensity vs distance from the cell
+                for i = 1: length(binEdges)-1
+
+                    idx = and(EDM>=binEdges(i), EDM<binEdges(i+1));
+
+                    currDistance = (binEdges(i)-binEdges(1) +binEdges(i+1))/2;
+                    currentIntensity = mean(data(idx));
+
+                    intRes.Distance(i) = currDistance;
+                    intRes.Intensity(i) = currentIntensity;
+
+                end
+
+                intRes.Mean = ones(length(intRes.Distance),1)*mean(data(EDM>0));
+                intRes.Median = ones(length(intRes.Distance),1)*median(data(EDM>0));
+
+                obj.results.intRes = intRes;
+                %save the intensity curve
+                filename = [obj.raw.path filesep 'IntensityResults.mat'];
+                save(filename,'intRes');
+
+                
+                plot(intRes.Distance,intRes.Intensity/max(intRes.Intensity));
+                xlabel('Distance (nm)')
+                ylabel('Average intensity per pixel')
+                axis square
+                box on
+                hold on
+                leg{j} = ['T' num2str(j)];
+%                 plot(intRes.Distance,ones(1,length(intRes.Distance))*mean(data(EDM>0)/max(intRes.Intensity)))
+%                 plot(intRes.Distance,ones(1,length(intRes.Distance))*median(data(EDM>0)/max(intRes.Intensity)))
+                
+
+
+                disp('=====> DONE <=====');
+            end
+            legend(leg)
+        
         end
-        
-        
     end
     methods (Access = private)
         

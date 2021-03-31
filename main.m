@@ -41,7 +41,8 @@ stack.getDensifiedNetwork();
 
 
 %% Display polymer and cell in 3D
-stack.renderCellPolymer3D(1)
+stack.renderCellPolymer3D(5)
+
 
 
 %% 
