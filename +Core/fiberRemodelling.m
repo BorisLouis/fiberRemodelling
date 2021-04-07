@@ -249,24 +249,10 @@ classdef fiberRemodelling < handle
                 disp('DONE with filtering ------------')
 
                 %get threshold based on corner
-                height10 = round(size(currData,1)/10);
-                width10  = round(size(currData,2)/10);
-
-                cornerMat = zeros(height10*2,width10*2,size(currData,3));
-
-                %get corner
-                cornerMat(1:height10,1:width10,:) = currData(1:height10,1:width10,:);
-                cornerMat(end-height10:end,1:width10,:) = currData(end-height10:end,1:width10,:);
-                cornerMat(1:height10,end-width10:end,:) = currData(1:height10,end-width10:end,:);
-                cornerMat(end-height10:end,end-width10:end,:) = currData(end-height10:end,end-width10:end,:);
-
-                stat.mean = mean(cornerMat(:));
-                stat.median = median(cornerMat(:));
-                %get maximum of corner without outliers
-                stat.max    = prctile(cornerMat(:),99);
-
+                stat = obj.getCornerStats(currData);
+                
                 % binarize the image based on max value in corners
-                gBW = currData>stat.max;
+                gBW = IMs>stat.max;
                 %thresh = adaptthresh(uint16(IMs),0.,'NeighborhoodSize',[51 51 11]);
                 %gBW2 = imbinarize(uint16(IMs),thresh);
                 %gBW = imbinarize(uint16(IMs),'adaptive','Sensitivity',0.4);
@@ -338,16 +324,16 @@ classdef fiberRemodelling < handle
             iSurface = isosurface(data2Render,1/2);
             
             % smoothing using compiled c code
-            polsmoothISurface = rendering3D.smoothpatch(iSurface,0,1);
-            %comnvert to px
-            polsmoothISurface.vertices(:,1) = (polsmoothISurface.vertices(:,1));
-            polsmoothISurface.vertices(:,2) = (polsmoothISurface.vertices(:,2));
-            polsmoothISurface.vertices(:,3) = (polsmoothISurface.vertices(:,3));
+%             polsmoothISurface = rendering3D.smoothpatch(iSurface,0,1);
+%             %comnvert to px
+%             polsmoothISurface.vertices(:,1) = (polsmoothISurface.vertices(:,1));
+%             polsmoothISurface.vertices(:,2) = (polsmoothISurface.vertices(:,2));
+%             polsmoothISurface.vertices(:,3) = (polsmoothISurface.vertices(:,3));
 
             %% Displaying network model
            
             
-            p3 = patch(polsmoothISurface);
+            p3 = patch(iSurface);
             p3.FaceColor = [0.7 0.7 0.7];
             p3.FaceAlpha = 0.5;
             p3.EdgeColor = 'none';
@@ -360,48 +346,87 @@ classdef fiberRemodelling < handle
             
         end
         
-        function [Volume] = calcVolumes(obj)
+        function [stats] = calcStats(obj)
             assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
             assert(isfield(obj.results,'polymerMask'),'No polymer mask found run calc3DMask first');
             
             cellMask = obj.results.cellMask;
             polymerMask = obj.results.polymerMask;
-            Volume.cell = zeros(1,size(cellMask,4));
-            Volume.polymer = zeros(1,size(cellMask,4));
+            cellChan = obj.channels.cell;
+            polChan = obj.channels.polymer;
+           
+            %memory preallocation
+            stats.cellVol = zeros(1,size(cellMask,4));
+            stats.polVol  = zeros(1,size(cellMask,4));
+            stats.cellInt = zeros(1,size(cellMask,4));
+            stats.polInt = zeros(1,size(cellMask,4));
+            
+            %remove the cell from the polymer mask
+            polymerMask=polymerMask-cellMask;
+            polymerMask(polymerMask<0) = 0;
+            polymerMask = logical(polymerMask);
+            
             pxSize = obj.info.pxSizeXY/1000;
             pxSizeZ = obj.info.pxSizeZ/1000;
             
             voxelSize = pxSize^2*pxSizeZ;
             for i = 1:size(cellMask,4)
-                currentCell = cellMask(:,:,:,i);
-                currentPolymer = polymerMask(:,:,:,i);
+                currentCellM = cellMask(:,:,:,i);
+                currentPolM  = polymerMask(:,:,:,i);
                 
-                Volume.cell(i) = sum(currentCell(:))*voxelSize;
-                Volume.polymer(i) = sum(currentPolymer(:))*voxelSize;
+                currentCell = cellChan(:,:,:,i);
+                currentPol  = polChan(:,:,:,i); 
+                
+                %normalize the mean intensity to the pixel volumes
+                stats.cellInt(i) = mean(currentCell(currentCellM))/voxelSize;
+                stats.polInt(i)  = mean(currentPol(currentPolM))/voxelSize;
+                
+                stats.cellVol(i) = sum(currentCellM(:))*voxelSize;
+                stats.polVol(i)  = sum(currentPolM(:))*voxelSize;
+                
                 
             end
+            %Volume plot
             figure
                 subplot(1,2,1)
-                    plot(Volume.cell)
-                    ylim([0 1.5*max(Volume.cell)])
+                    plot(stats.cellVol)
+                    ylim([0 1.5*max(stats.cellVol)])
                     axis square
                     xlabel('Time')
                     ylabel('Volume (\mum^3)')
                     title('Cell')
 
                 subplot(1,2,2)
-                    plot(Volume.polymer)
-                    ylim([0 1.2*max(Volume.polymer)])
+                    plot(stats.polVol)
+                    ylim([0 1.2*max(stats.polVol)])
                     axis square
                     xlabel('Time')
                     ylabel('Volume (\mum^3)')
+                    title('Densified polymer')
+                    
+                    
+             figure
+                subplot(1,2,1)
+                    plot(stats.cellInt)
+                    ylim([0 1.5*max(stats.cellInt)])
+                    axis square
+                    xlabel('Time')
+                    ylabel('Intensity(a.u.)')
+                    title('Cell')
+
+                subplot(1,2,2)
+                    plot(stats.polInt)
+                    ylim([0 1.2*max(stats.polInt)])
+                    axis square
+                    xlabel('Time')
+                    ylabel('Intensity(a.u.)')
                     title('Densified polymer')
 
         end
         
         function [NOP]    = calcNOP(obj)
             assert(isfield(obj.results,'polymerMask'),'No polymer mask found run calc3DMask first');
-            
+            error('not Implemented yet')
             polymerMask = obj.results.polymerMask;
             data        = obj.channels.polymer;
             gradx = zeros(size(data));
@@ -429,6 +454,27 @@ classdef fiberRemodelling < handle
             
         end
         
+        function [AllDist] = calcDistCellPol(obj)
+            assert(~isempty(obj.channels),'Data not found, please loadData() before using this function')
+            assert(isfield(obj.results,'cellMask'),'No cell mask found run calc3DMask first');
+            
+            cellMask = obj.results.cellMask;
+            polMask  = obj.results.polymerMask;
+            AllDist  = cell(size(cellMask,4),1);
+            for i = 1:size(cellMask,4)
+                currentCellM = cellMask(:,:,:,i);
+                currentPolM  = ~polMask(:,:,:,i);
+                
+                dist = obj.getDistBetweenMasks(currentPolM,currentCellM);
+                
+                AllDist{i} = dist;
+               
+            end
+            
+            
+        end
+        
+        
         function intensityDistrib(obj,weight,step)
             
             assert(~isempty(obj.channels),'Data not found, please loadData() before using this function')
@@ -441,6 +487,8 @@ classdef fiberRemodelling < handle
             leg = cell(size(mask,4),1);
             for j = 1:size(mask,4)
                 currentMask = mask(:,:,:,j);
+                stat = obj.getCornerStats(data(:,:,:,j));
+                
                 EDM = DistMap.calcWeightedDistMap(currentMask,weight);
 
                 edgeMin = min(EDM(:));
@@ -448,7 +496,7 @@ classdef fiberRemodelling < handle
 
                 binEdges = edgeMin:step:edgeMax;
 
-                intRes = table(zeros(length(binEdges)-1,1),zeros(length(binEdges)-1,1),...
+                intRes = table(zeros(size(mask,4),length(binEdges)-1),zeros(size(mask,4),length(binEdges)-1),...
                     'VariableNames',{'Distance','Intensity'});
 
                 %Calculate the intensity vs distance from the cell
@@ -459,34 +507,28 @@ classdef fiberRemodelling < handle
                     currDistance = (binEdges(i)-binEdges(1) +binEdges(i+1))/2;
                     currentIntensity = mean(data(idx));
 
-                    intRes.Distance(i) = currDistance;
-                    intRes.Intensity(i) = currentIntensity;
+                    intRes.Distance(j,i) = currDistance;
+                    intRes.Intensity(j,i) = currentIntensity;
 
                 end
-
-                intRes.Mean = ones(length(intRes.Distance),1)*mean(data(EDM>0));
-                intRes.Median = ones(length(intRes.Distance),1)*median(data(EDM>0));
-
-                obj.results.intRes = intRes;
-                %save the intensity curve
-                filename = [obj.raw.path filesep 'IntensityResults.mat'];
-                save(filename,'intRes');
-
                 
-                plot(intRes.Distance,intRes.Intensity/max(intRes.Intensity));
+                intRes.normInt(j,:) = intRes.Intensity(j,:)-stat.mean;
+                intRes.normInt(j,:) = intRes.normInt(j,:)/max(intRes.normInt(j,:));
+             
+                plot(intRes.Distance(j,:),intRes.normInt(j,:));
                 xlabel('Distance (nm)')
                 ylabel('Average intensity per pixel')
                 axis square
                 box on
                 hold on
                 leg{j} = ['T' num2str(j)];
-%                 plot(intRes.Distance,ones(1,length(intRes.Distance))*mean(data(EDM>0)/max(intRes.Intensity)))
-%                 plot(intRes.Distance,ones(1,length(intRes.Distance))*median(data(EDM>0)/max(intRes.Intensity)))
-                
-
 
                 disp('=====> DONE <=====');
             end
+            obj.results.intRes = intRes;
+            %save the intensity curve
+            filename = [obj.raw.path filesep 'IntensityResults.mat'];
+            save(filename,'intRes');
             legend(leg)
         
         end
@@ -569,10 +611,67 @@ classdef fiberRemodelling < handle
             
         end
         
+        function closestDist  = getDistBetweenMasks(obj,bigMask,smallMask)
+            pxSizeXY = obj.info.pxSizeXY;
+            pxSizeZ  = obj.info.pxSizeZ;
+            %get big contour
+            bigContour = imgradient3(bigMask);
+            bigContour(bigContour>0) = 1;
+            
+            %get smallContour
+            smallContour = imgradient3(smallMask);
+            smallContour(smallContour>0) = 1;
+            
+            [y,x,z] = ind2sub(size(bigContour),find(bigContour));
+            bigCoord = [x*pxSizeXY,y*pxSizeXY,z*pxSizeZ];
+            
+            [y,x,z] = ind2sub(size(smallContour),find(smallContour));
+            smallCoord = [x*pxSizeXY,y*pxSizeXY,z*pxSizeZ];
+            
+            closestDist = zeros(size(bigContour,1),1);
+            
+            for i = 1:size(bigCoord,1)
+               
+                currentCoord = bigCoord(i,:);
+                
+                closestDist(i) = min(sqrt((currentCoord(1)-smallCoord(:,1)).^2+...
+                    (currentCoord(2)-smallCoord(:,2)).^2+(currentCoord(3)-smallCoord(:,3)).^2));
+                
+                
+                
+                
+                
+            end
+            
+                
+            
+            
+        end
+        
         
     end
     
     methods (Static)
+        
+        function stat = getCornerStats(currData)
+           %get threshold based on corner
+            height10 = round(size(currData,1)/10);
+            width10  = round(size(currData,2)/10);
+
+            cornerMat = zeros(height10*2,width10*2,size(currData,3));
+
+            %get corner
+            cornerMat(1:height10,1:width10,:) = currData(1:height10,1:width10,:);
+            cornerMat(end-height10:end,1:width10,:) = currData(end-height10:end,1:width10,:);
+            cornerMat(1:height10,end-width10:end,:) = currData(1:height10,end-width10:end,:);
+            cornerMat(end-height10:end,end-width10:end,:) = currData(end-height10:end,end-width10:end,:);
+
+            stat.mean = mean(cornerMat(:));
+            stat.median = median(cornerMat(:));
+            %get maximum of corner without outliers
+            stat.max    = prctile(cornerMat(:),99); 
+            
+        end
         
         function checkExtension(ext)
             ext = lower(ext);

@@ -41,17 +41,13 @@ stack.getDensifiedNetwork();
 
 
 %% Display polymer and cell in 3D
-stack.renderCellPolymer3D(5)
+%stack.renderCellPolymer3D(5)
 
 
 
 %% 
 
-[Volumes] = stack.calcVolumes();
-
-
-%%
-[NOP]     = stack.calcNOP();
+[Volumes] = stack.calcStats();
 
 
 %% Intensity analysis
@@ -60,4 +56,33 @@ weight = [info.pxSizeXY,info.pxSizeXY,info.pxSizeZ];
 step = 2*info.pxSizeXY;
 %test = DistMap.calcWeightedDistMap(Mask,weight);
 stack.intensityDistrib(weight,step);
+
+%% get distance between polymer and cell
+
+distance = stack.calcDistCellPol;
+
+
+%% Plot Distance
+minDist = min(cellfun(@min,distance));
+maxDist = max(cellfun(@max,distance));
+
+bins = linspace(minDist,maxDist,101);
+leg=cell(length(distance),1);
+figure
+hold on
+for i = 1:length(distance)
+    [N,edges] = histcounts(distance{i},bins);
+    
+    bar(edges(2:end)-mean(diff(edges)),N/sum(N));
+    
+    leg{i} = ['T' num2str(i)];
+    
+end
+xlabel('Distance (\mum)')
+ylabel('Area normalized distribution');
+axis square
+box on
+legend(leg)
+
+
 
