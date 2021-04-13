@@ -2,16 +2,17 @@ clear;
 close all;
 clc;
 %% User Input
-file.path = 'D:\Documents\Unif\PhD\2021-Data\01 - Jan\28 - Hongbo\Boris_Hongbo\cell2\SplitData';
+path = 'D:\Boris_Hongbo\1_with culturing time_0-24h\Cell1 - 1h';
+file.path = [path filesep 'Split'];
 file.ext  = '.tif';
 
-info.pxSizeXY = 568; 
-info.pxSizeZ  = 569;
+info.pxSizeXY = 570; 
+info.pxSizeZ  = 570;
 
 %Give info about the channels, the word needs to be lowercase with no typos
 %care that the
-chan.c001 = 'polymer';
-chan.c002 = 'cell';
+chan.c001 = 'cell';
+chan.c002 = 'polymer';
 chan.c003 = 'ignore';
 chan.c004 = 'ignore';
 
@@ -47,7 +48,7 @@ stack.getDensifiedNetwork();
 
 %% 
 
-[Volumes] = stack.calcStats();
+[Stats] = stack.calcStats();
 
 
 %% Intensity analysis
@@ -84,5 +85,9 @@ axis square
 box on
 legend(leg)
 
+%% Save data
+fileName = [path filesep 'results.mat'];
+res = stack.getResults();
+save(fileName,'res');
 
 

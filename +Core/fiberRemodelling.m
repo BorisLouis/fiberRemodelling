@@ -63,6 +63,10 @@ classdef fiberRemodelling < handle
             channels = obj.channels;
         end
         
+        function results = getResults(obj)
+           results = obj.results; 
+        end
+        
         function showChannel(obj)
             channel = obj.getChannel;
             field = fieldnames(channel);
@@ -386,6 +390,9 @@ classdef fiberRemodelling < handle
                 
                 
             end
+            %store stats in results
+            obj.results.stats = stats;
+            
             %Volume plot
             figure
                 subplot(1,2,1)
@@ -470,7 +477,7 @@ classdef fiberRemodelling < handle
                 AllDist{i} = dist;
                
             end
-            
+            obj.results.distances = AllDist;
             
         end
         
