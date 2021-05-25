@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 %% User Input
-path = 'D:\Boris_Hongbo\1_with culturing time_0-24h\Cell1 - 1h';
+path = 'D:\Boris_Hongbo\1_with culturing time_0-24h\Cell3 - 7h';
 file.path = [path filesep 'Split'];
 file.ext  = '.tif';
 
@@ -30,7 +30,7 @@ stack.showChannel;
 Mask = stack.calc3DMask();
 
 %%
-stack.plotCellContour();
+%stack.plotCellContour();
 
 %% 3D
 %this step takes time so we don't really run it
@@ -42,7 +42,7 @@ stack.getDensifiedNetwork();
 
 
 %% Display polymer and cell in 3D
-%stack.renderCellPolymer3D(5)
+stack.renderCellPolymer3D(1)
 
 
 
