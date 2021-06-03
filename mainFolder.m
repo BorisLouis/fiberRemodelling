@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 
-path = 'D:\Boris_Hongbo\2_after adding cytoD_5 time points';
+path = 'D:\Boris_Hongbo\3_different gel conditions';
 info.pxSizeXY = 570; 
 info.pxSizeZ  = 570;
 

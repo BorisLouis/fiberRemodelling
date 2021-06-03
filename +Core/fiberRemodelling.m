@@ -229,7 +229,7 @@ classdef fiberRemodelling < handle
         function getDensifiedNetwork(obj)
             assert(isfield(obj.channels,'polymer'));
             assert(isfield(obj.results,'cellMask'));
-            
+            method = 'tHold';% 'std' tHold
             disp('Extracting densified network...')
             
             disp('Performing segmentation on polymer channel');
@@ -253,23 +253,36 @@ classdef fiberRemodelling < handle
                 disp('DONE with filtering ------------')
 
                 %get threshold based on corner
-                stat = obj.getCornerStats(currData);
+                [stat,cornerMat] = obj.getCornerStats(IMs);
                 
-                % binarize the image based on max value in corners
-                gBW = currData>stat.max;
-                %thresh = adaptthresh(uint16(IMs),0.,'NeighborhoodSize',[51 51 11]);
-                %gBW2 = imbinarize(uint16(IMs),thresh);
-                %gBW = imbinarize(uint16(IMs),'adaptive','Sensitivity',0.4);
-                % remove salt and pepper noise
-                %gBW = medfilt3(gBW);D:\Boris_Hongbo\1_with culturing time_0-24h\Cell3 - 7h
+                tHold = Misc.tholdSigBg(cornerMat,IMs);
+                
+                if strcmp(method,'tHold')
+                    gBW = IMs>2*tHold;
 
-                % remove small object
+                    for j = 1:size(gBW,3)
+                        gBW(:,:,j) = bwareaopen(gBW(:,:,j),50);
+
+                    end
+
+                    se = strel('sphere',3);
+                    gBW = imclose(gBW,se);
+
+                elseif strcmp(method,'std')
          
-%                
-%                 se = strel('disk',5);
-%                 gBW = imclose(gBW,se);
-%                 
-                
+                    mask1 = stdfilt(IMs, ones(15,15,3)) > tHold;
+                    mask2 = IMs > 2*tHold;
+                    % Then you'll undoubtedly have to do some clean up, like with bwareafilt() or imclose().
+                    % Now create final mask.
+                    gBW = mask1 & mask2;
+                    se = strel('sphere',5);
+                    gBW = imclose(gBW,se);
+                    
+                end
+
+                % binarize the image based on max value in corners
+                %OLD METHOD SEE ISSUE IN THE PPT detection problem
+              %  gBW = currData>stat.max;                              
                 %get only biggest one
                 prop = regionprops3(gBW,'Volume','Voxelidxlist');
                 
@@ -277,10 +290,10 @@ classdef fiberRemodelling < handle
                 gBW = zeros(size(gBW));
                 gBW(voxelIdx)= 1;
                 
-                se = strel('sphere',5);
-                gBW = imclose(gBW,se);
+%                 se = strel('sphere',3);
+%                 gBW = imclose(gBW,se);
                 
-                gBW = imfill(gBW);
+             %   gBW = imfill(gBW);
                 
                 disp('Extracting Contour')
                 %here we obtain the cell contour
@@ -290,8 +303,10 @@ classdef fiberRemodelling < handle
          
                 %% building 3D mask
             
-                
-                allMask(:,:,:,i) = gBW;
+                currCellMask = obj.results.cellMask(:,:,:,i);
+                finalMask = gBW-currCellMask;
+                finalMask(finalMask<0)=0;
+                allMask(:,:,:,i) = finalMask;
 
             end
             
@@ -366,9 +381,11 @@ classdef fiberRemodelling < handle
             stats.polInt = zeros(1,size(cellMask,4));
             
             %remove the cell from the polymer mask
-            polymerMask=polymerMask-cellMask;
-            polymerMask(polymerMask<0) = 0;
-            polymerMask = logical(polymerMask);
+            %CELL IS NOW REMOVED FROM THE POLYMER MASK IN
+            %GETDENSIFIEDNETWORK
+%             polymerMask=polymerMask-cellMask;
+%             polymerMask(polymerMask<0) = 0;
+%             polymerMask = logical(polymerMask);
             
             pxSize = obj.info.pxSizeXY/1000;
             pxSizeZ = obj.info.pxSizeZ/1000;
@@ -684,7 +701,7 @@ classdef fiberRemodelling < handle
     
     methods (Static)
         
-        function stat = getCornerStats(currData)
+        function [stat,cornerMat] = getCornerStats(currData)
            %get threshold based on corner
             height10 = round(size(currData,1)/10);
             width10  = round(size(currData,2)/10);

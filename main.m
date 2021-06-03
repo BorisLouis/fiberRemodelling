@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 %% User Input
-path = 'D:\Boris_Hongbo\1_with culturing time_0-24h\Cell3 - 7h';
+path = 'D:\Boris_Hongbo\Polymer Detection issue\Cell4';
 file.path = [path filesep 'Split'];
 file.ext  = '.tif';
 
