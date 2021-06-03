@@ -240,12 +240,13 @@ fieldN = fieldnames(data);
 figure
 hold on
 bins = linspace(0,100000,100);
-for i = 1:numel(fieldN)
-    currF = ['C' num2str(i)];
+
+for i = 1:size(data.C1.intRes,1)
     currAvg = zeros(1,length(bins)-1);
-    for j = 1:size(data,2)
-       currDist = data(j).(currF).distances;
-       [N,edges] = histcounts(currDist{1},bins);
+    for j = 1:numel(fieldN)
+       currF = ['C' num2str(j)];
+       currDist = data.(currF).distances{i};
+       [N,edges] = histcounts(nonzeros(currDist),bins);
        
        currAvg = currAvg+N;
        
@@ -270,16 +271,14 @@ ylim([0 0.1])
 fieldN = fieldnames(data);
 medDist = zeros(numel(fieldN),3);
 maxDist  = zeros(numel(fieldN),3);
-
-for i = 1:numel(fieldN)
-    currF = ['C' num2str(i)];
+for i = 1:size(data.C1.intRes,1)
     
-    tmpMeanDist = zeros(size(data,2),1);
-    tmpMaxDist  = zeros(size(data,2),1);
-    for j = 1:size(data,2)
-       
-        tmpMeanDist(j) = median(data(j).(currF).distances{1});
-        tmpMaxDist(j)  = max(data(j).(currF).distances{1});
+    tmpMeanDist = zeros(numel(fieldN),1);
+    tmpMaxDist  = zeros(numel(fieldN),1);
+    for j = 1:numel(fieldN)
+        currF = ['C' num2str(j)];
+        tmpMeanDist(j) = median(nonzeros(data.(currF).distances{i}));
+        tmpMaxDist(j)  = max(data.(currF).distances{i});
         
     end
     
@@ -327,6 +326,13 @@ for i = 1:numel(fieldN)
 
    plot(edges(1:end-1),N)
 end
+legend({'C1','C2','C3','C4','C5'})
+xlabel('Distance (nm)')
+ylabel('Occurences')
+set(gca,'XScale','log')
+set(gca,'YScale','log');
+axis square
+box on
 
 
 %% Model T0-T5
