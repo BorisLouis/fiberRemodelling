@@ -7,6 +7,7 @@ conditions = {'0h' '2h' '7h' '15h' '24h'};
 conditionsVar = {'A','B','C', 'D', 'E'};
 
 xAxis = categorical(conditions);
+xAxis = reordercats(xAxis,conditions);
 xTime = [0 2 7 15 24];
 %% Load
 
@@ -246,6 +247,55 @@ box on
 xlabel('Distance from cell')
 ylabel('Norm. Intensity.')
 axis square
+
+
+%% Decay comparison
+% bin distance curve to average it out
+
+cellDecay = cell(2,numel(fieldN));
+for i = 1:numel(fieldN)
+    currF = fieldN{i};
+    
+    idx = ~cellfun(@isempty,{data.(currF)});
+    nData = sum(idx);
+    
+    for j = 1:nData
+        
+        cellDecay{1,i} = [cellDecay{1,i}; data(j).(currF).intRes{1}.Distance(:)];
+        cellDecay{2,i} = [cellDecay{2,i}; data(j).(currF).intRes{1}.normInt(:)];
+        
+    end
+end
+
+bins = linspace(0,400000,1000);
+
+for i = 1:size(cellDecay,2)
+   % sort x axis
+   [cellDecay{1,i}, Ia] = sort(cellDecay{1,i});
+   cellDecay{2,i} = cellDecay{2,i}(Ia); 
+    
+    [~,~,loc]=histcounts(cellDecay{1,i},bins);
+    meanInt  = accumarray(loc(loc>0),cellDecay{2,i})./accumarray(loc(loc>0),1);
+    cellDecay{3,i} = unique(bins(loc(loc>0)));
+    cellDecay{4,i} = meanInt(~isnan(meanInt));    
+end
+
+
+
+
+figure
+hold on
+for i = 1:numel(fieldN)
+   plot(cellDecay{3,i},cellDecay{4,i})
+   
+end
+legend(xAxis)
+box on
+xlabel('Distance from cell')
+ylabel('Norm. Intensity.')
+axis square
+
+
 
 %% 
 
