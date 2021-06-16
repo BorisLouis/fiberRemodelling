@@ -400,9 +400,12 @@ classdef fiberRemodelling < handle
                 cellCorner  = Core.fiberRemodelling.getCornerStats(currentCell);
                 polCorner   = Core.fiberRemodelling.getCornerStats(currentPol);
                 
-                %normalize the mean intensity to the pixel volumes
-                stats.cellInt(i) = mean(currentCell(currentCellM)-cellCorner.median)/voxelSize;
-                stats.polInt(i)  = mean(currentPol(currentPolM)-polCorner.median)/voxelSize;
+                %normalize the mean intensity to the pixel volumes and the 
+                %intensity in the corner
+                stats.cellInt(i) = mean(currentCell(currentCellM));
+                stats.cellCornerInt(i) = cellCorner.median;
+                stats.polInt(i)  = mean(currentPol(currentPolM));
+                stats.polCornerInt(i)  = polCorner.median;
                 if isnan(stats.polInt(i))
                     stats.polInt(i) =0;
                 end
@@ -411,6 +414,7 @@ classdef fiberRemodelling < handle
                 
                 
             end
+            stats.voxelSize = voxelSize;
             %store stats in results
             obj.results.stats = stats;
             
