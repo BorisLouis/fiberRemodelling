@@ -225,9 +225,9 @@ for i = 1:numel(fieldN)
        
     end
     
-    currAvg = currAvg/size(data,2);
+    currAvg = currAvg/sum(currAvg);
     
-    plot(edges(2:end)-mean(diff(edges)),N/sum(N));
+    plot(edges(2:end)-(mean(diff(edges)/2)),currAvg);
     
    
     

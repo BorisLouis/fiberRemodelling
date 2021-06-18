@@ -112,8 +112,9 @@ polVol  = zeros(nData,nCond);
 for i = 1:numel(fieldN)
     currF = ['C' num2str(i)];
     cellVol(i,:) = data.(currF).stats.cellVol(1:nCond);
+    cellVol(i,:) = cellVol(i,:)./cellVol(i,1);
     polVol(i,:)  = data.(currF).stats.polVol(1:nCond);
-    
+    polVol(i,:)  = polVol(i,:)./polVol(i,1);
 end
 % shadow error bar
 figure
@@ -252,13 +253,11 @@ for i = 1:size(data.C1.intRes,1)
        
     end
     
-    currAvg = currAvg/size(data,2);
+    currAvg = currAvg/sum(currAvg);
     
-    plot(edges(2:end)-mean(diff(edges)),N/sum(N));
+    plot(edges(2:end)-(mean(diff(edges)/2)),currAvg);
     
-   
-    
-   
+
 end
 legend(xAxis)
 box on
