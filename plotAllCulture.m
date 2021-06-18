@@ -68,8 +68,8 @@ for i = 1:numel(fieldN)
     tmpPolInt  = zeros(size(data,2),1);
     for j = 1:size(data,2)
        
-        tmpCellInt(j) = data(j).(currF).stats.cellInt;
-        tmpPolInt(j)  = data(j).(currF).stats.polInt;
+        tmpCellInt(j) = data(j).(currF).stats.cellInt-data(j).(currF).stats.cellCornerInt;
+        tmpPolInt(j)  = data(j).(currF).stats.polInt/data(j).(currF).stats.polCornerInt;
         
     end
     

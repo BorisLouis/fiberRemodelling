@@ -63,8 +63,8 @@ cellInt = zeros(nData,nCond);
 polInt  = zeros(nData,nCond);
 for i = 1:numel(fieldN)
     currF = ['C' num2str(i)];
-    cellInt(i,:) = data.(currF).stats.cellInt(1:nCond);
-    polInt(i,:)  = data.(currF).stats.polInt(1:nCond);
+    cellInt(i,:) = data.(currF).stats.cellInt(1:nCond)-data.(currF).stats.cellCornerInt(1:nCond);
+    polInt(i,:)  = data.(currF).stats.polInt(1:nCond)./data.(currF).stats.polCornerInt(5);
     
 end
 % shadow error bar
