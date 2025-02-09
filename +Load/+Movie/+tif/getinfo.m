@@ -1,4 +1,4 @@
-function [ movieInfo ] = getinfo( path2file )
+function [ movieInfo ] = getInfo( path2file )
 %GETINFO Summary of this function goes here
 %   Detailed explanation goes here
 

@@ -2,9 +2,10 @@ clear;
 close all;
 clc;
 %% User Input
-path = 'D:\Boris_Hongbo\Polymer Detection issue\Cell4';
-file.path = [path filesep 'Split'];
-file.ext  = '.tif';
+file.path = 'D:\Documents\2025 - Data\01 Jan\SarahHaoxiang_PIC intensity\Big black holes';
+%file.path = [path filesep 'Split'];
+
+file.ext  = '.lif';
 
 info.pxSizeXY = 570; 
 info.pxSizeZ  = 570;
@@ -17,7 +18,7 @@ chan.c003 = 'ignore';
 chan.c004 = 'ignore';
 
 %% Loading data
-rendering3D.compile3DRendering();
+
 
 stack = Core.fiberRemodelling(file,info);
 
@@ -34,8 +35,12 @@ Mask = stack.calc3DMask();
 
 %% 3D
 %this step takes time so we don't really run it
-stack.renderCell3D(1);
-
+try
+    stack.renderCell3D(1);
+catch
+    rendering3D.compile3DRendering();
+    stack.renderCell3D(1);
+end 
 %% Gel network
 
 stack.getDensifiedNetwork();
@@ -46,17 +51,25 @@ stack.renderCellPolymer3D(1)
 
 
 
+%% Get cell 'hole' in polymer
+
+stack.getCellGap();
+
+%% display all
+stack.renderAll()
+
+
 %% 
 
 [Stats] = stack.calcStats();
 
 
 %% Intensity analysis
-weight = [info.pxSizeXY,info.pxSizeXY,info.pxSizeZ];
-
-step = 2*info.pxSizeXY;
-%test = DistMap.calcWeightedDistMap(Mask,weight);
-stack.intensityDistrib(weight,step);
+% weight = [info.pxSizeXY,info.pxSizeXY,info.pxSizeZ];
+% 
+% step = 2*info.pxSizeXY;
+% %test = DistMap.calcWeightedDistMap(Mask,weight);
+% stack.intensityDistrib(weight,step);
 
 %% get distance between polymer and cell
 
@@ -76,7 +89,7 @@ for i = 1:length(distance)
     
     bar(edges(2:end)-mean(diff(edges)),N/sum(N));
     
-    leg{i} = ['T' num2str(i)];
+    leg{i} = ['C' num2str(i)];
     
 end
 xlabel('Distance (\mum)')
@@ -86,7 +99,7 @@ box on
 legend(leg)
 
 %% Save data
-fileName = [path filesep 'results.mat'];
+fileName = [file.path filesep 'results.mat'];
 res = stack.getResults();
 save(fileName,'res');
 

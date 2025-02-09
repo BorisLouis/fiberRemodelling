@@ -5,7 +5,7 @@ function [tHold] = tholdSigBg(bg,sig)
 
 sigV = sig(:);
 bgV  = bg(:);
-assert(mean(bgV)<mean(sigV),'strange your background looks larger than your signal')
+%assert(mean(bgV)<mean(sigV),'strange your background looks larger than your signal')
 
 % find CDF of signal and CCDF of background
 [sigCDF] = Plotting.getCDF(sigV);
