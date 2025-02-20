@@ -2,10 +2,9 @@ clear;
 close all;
 clc;
 %% User Input
-file.path = 'D:\Documents\2025 - Data\01 Jan\SarahHaoxiang_PIC intensity\Big black holes';
+file.path = 'D:\Documents\2025 - Data\01 Jan\SarahHaoxiang_PIC intensity\No black holes';
 %file.path = [path filesep 'Split'];
-
-file.ext  = '.lif';
+file.ext  = '';
 
 info.pxSizeXY = 570; 
 info.pxSizeZ  = 570;
@@ -14,9 +13,9 @@ info.pxSizeZ  = 570;
 %care that the
 chan.c001 = 'cell';
 chan.c002 = 'polymer';
-chan.c003 = 'ignore';
-chan.c004 = 'ignore';
+chan.c003 = '';
 
+mkdir( [file.path filesep 'Figures']);
 %% Loading data
 
 
@@ -102,5 +101,6 @@ legend(leg)
 fileName = [file.path filesep 'results.mat'];
 res = stack.getResults();
 save(fileName,'res');
+f = msgbox('Data succesfully saved');
 
 

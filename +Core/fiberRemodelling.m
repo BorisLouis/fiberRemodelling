@@ -7,6 +7,7 @@ classdef fiberRemodelling < handle
         info
         channels
         results
+        validExt = {'.lif','.tif'};
     end
     
     methods
@@ -29,12 +30,24 @@ classdef fiberRemodelling < handle
         
         function loadData(obj,chan)
             path = obj.raw.path;
-            ext  = obj.raw.ext;
+            ext  = obj.validExt;
             %let us check that there is no channel data existing
             if ~obj.existChannel
                 disp('no channel data found, starting extraction ...')
-                %get all file of appropriate extension in the file
-                fileList = Core.fiberRemodelling.getFileInPath(path,ext);
+                
+               
+                for i = 1:length(ext)
+                    currentExt = ext{i};
+                    %get all file of appropriate extension in the file
+                    fileList = Core.fiberRemodelling.getFileInPath(path,currentExt);
+                    
+                    if ~isempty(fileList)
+                      
+                        disp(['A file of extension ', currentExt,' found in the input folder'])
+                        break;
+                    end
+                    
+                end
                 %get the different channel from the data
                 channel  = obj.retrieveChannel(fileList,chan);
                                            
@@ -235,7 +248,7 @@ classdef fiberRemodelling < handle
                     axis tight
                     camlight
                     lighting gouraud
-                    title('Z-coloring')
+                   
                 else
                     p2 = patch(iSurface);
                     p2.FaceColor = colorModel;
@@ -244,9 +257,18 @@ classdef fiberRemodelling < handle
                     axis tight
                     camlight
                     lighting gouraud
-                    title('unicolor');
+                   
                 end
                 axis image
+                
+                title(['Data ' num2str(i)]);
+                set(gcf,'Color','w')
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_0' num2str(i) '.fig'];
+                saveas(gcf,filename)
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_0' num2str(i) '.png'];
+                saveas(gcf,filename)
+               
+                
             end
             
             
@@ -383,15 +405,25 @@ classdef fiberRemodelling < handle
 
 
                 p3 = patch(iSurface);
-                p3.FaceColor = [0.7 0.7 0.7];
-                p3.FaceAlpha = 0.5;
+                p3.FaceColor = [0.7 0 0];
+                p3.FaceAlpha = 0.3;
                 p3.EdgeColor = 'none';
 
                 view(3);
                 axis tight
                 camlight
                 lighting gouraud
-                title('unicolor');
+                
+                title(['Data ' num2str(i)]);
+                
+                
+                set(gcf,'Color','w')
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.fig'];
+                saveas(gcf,filename)
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.png'];
+                saveas(gcf,filename)
+                
+                
             end
         end
         
@@ -426,9 +458,18 @@ classdef fiberRemodelling < handle
                     bwfilt = imclose(bwfilt,se);
 
                     bwfilt = ~bwfilt;
+                    
+                    %remove small object in 2D
+                    for k=1:size(bwfilt,3)
+                        bwfilt(:,:,k) = bwareaopen(bwfilt(:,:,k),200);
+                        
+                    end
+                    
+                  
+                    
                     %extract largest
-                    stats = regionprops3(bwfilt,'Volume','VoxelIdxList');
-                    [~,idx] = max(stats.Volume);
+                    stats = regionprops3(bwfilt,'Volume','VoxelIdxList','Extent');
+                    [~,idx] = max(stats.Volume.*stats.Extent.^2);
                     idxList = stats.VoxelIdxList{idx,:};
 
                     bwMask = zeros(size(bwfilt));
@@ -503,7 +544,14 @@ classdef fiberRemodelling < handle
                 axis tight
                 camlight
                 lighting gouraud
-                title('unicolor');
+                title(['Data ' num2str(i)]);
+                
+                set(gcf,'Color','w')
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.fig'];
+                saveas(gcf,filename)
+                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.png'];
+                saveas(gcf,filename)
+                
             end
         end
         
@@ -568,7 +616,26 @@ classdef fiberRemodelling < handle
             stats.voxelSize = voxelSize;
             %store stats in results
             obj.results.stats = stats;
-            
+%             hVol = figure(100);
+%             hInt = figure(101);
+%             for j = 1:size(cellMask,2)
+%                  subplot(1,2,1)
+%                     plot(stats.cellVol)
+%                     ylim([0 1+1.5*max(stats.cellVol)])
+%                     axis square
+%                     xlabel('Time')
+%                     ylabel('Volume (\mum^3)')
+%                     title('Cell')
+% 
+%                 subplot(1,2,2)
+%                     plot(stats.polVol)
+%                     ylim([0 1+1.2*max(stats.polVol)])
+%                     axis square
+%                     xlabel('Time')
+%                     ylabel('Volume (\mum^3)')
+%                     title('Densified polymer')
+% 
+%             end
 %             %Volume plot
 %             figure
 %                 subplot(1,2,1)
@@ -740,15 +807,18 @@ classdef fiberRemodelling < handle
         
         function [channel] = retrieveChannel(obj,fileList,chan)
             
+            [folder,file,ext] = fileparts([fileList(1).folder filesep fileList(1).name]);
             fields = fieldnames(chan);
             
-            switch (obj.raw.ext)
+            switch (ext)
                 case '.tif'
                     [movInfo] = Load.Movie.tif.getInfo([fileList(1).folder filesep fileList(1).name]);
                     [channel]   = obj.extractChannelTIF(movInfo, fields,fileList);
                 
                 case '.lif'
-                    channel  = obj.extractChannelLIF([fileList(1).folder filesep fileList(1).name]);
+                    channel  = obj.extractChannelLIF([fileList(1).folder filesep fileList(1).name],chan);
+                otherwise
+                    error('Unkown extension')
             end
              
             
@@ -861,27 +931,37 @@ classdef fiberRemodelling < handle
             assert(all(size(channel.cell)==size(channel.polymer)),'Something is wrong with the size of the channels')
         end
         
-        function channel = extractChannelLIF(~,path2File)
+        function channel = extractChannelLIF(~,path2File,fields)
             [path,file,ext] = fileparts(path2File);
-    
+            
+            %extract cell and polymer idx based on user input
+            nf = fieldnames(fields);
+            for i = 1:length(nf)
+                f = fields.(nf{i});
+                
+                if (strcmpi(f,'cell'))
+                    idCell = i;
+                elseif (strcmpi(f,'polymer'))
+                    idPol = i;
+                end
+   
+            end
+            
             data = bfopen(path2File);
 
             nSeries = size(data,1);
             for i = 1: nSeries
                 Misc.multiWaitbar('Channel Extraction',i/nSeries);
                 currData = data{i}(:,1);
+                nameData = data{i}(1,2);
                 
-                    
-                   
-                test = median(currData{1}(:)) ==0;
+                idx = strfind(nameData{1}, 'C=1/');
+                nChan = str2double(nameData{1}(idx+4:end));
 
-                if test
-                    idx2Cell = 1:2:size(currData,1);
-                    idx2Pol  = 2:2:size(currData,1);
-                else
-                    idx2Pol = 1:2:size(currData,1);
-                    idx2Cell  = 2:2:size(currData,1);
-                end
+                %assign cell and polymer channel based on user input 
+                idx2Cell = idCell:nChan:size(currData,1);
+                idx2Pol  = idPol:nChan:size(currData,1);
+               
                     
                 currCellChan = currData(idx2Cell);
                 currPolChan = currData(idx2Pol);
@@ -951,9 +1031,11 @@ classdef fiberRemodelling < handle
             index2Images  = contains(lower({folderContent.name}),ext,'IgnoreCase',true);
             file2Analyze  = folderContent(index2Images);
             
-            assert(~isempty(file2Analyze),['No file of extension ', ext,' found in the input folder']')
-        end
+            if isempty(file2Analyze)
+                disp(['No file of extension ', ext,' found in the input folder'])
         
+            end
+        end
         function [contour] = getCellContour(gBW)
             contour = cell(1,size(gBW,3));
             for i = 1:size(gBW,3)
