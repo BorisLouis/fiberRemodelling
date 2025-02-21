@@ -2,7 +2,7 @@ clear;
 close all;
 clc;
 %% User Input
-file.path = 'D:\Documents\2025 - Data\01 Jan\SarahHaoxiang_PIC intensity\No black holes';
+file.path = 'K:\different peptides\test';
 %file.path = [path filesep 'Split'];
 file.ext  = '';
 
@@ -93,6 +93,7 @@ for i = 1:length(distance)
 end
 xlabel('Distance (\mum)')
 ylabel('Area normalized distribution');
+xlim([info.pxSizeXY  max(edges)])
 axis square
 box on
 legend(leg)

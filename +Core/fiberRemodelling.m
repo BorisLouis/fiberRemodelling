@@ -145,9 +145,12 @@ classdef fiberRemodelling < handle
                     zFactor = 2;
                     sigma = [S,S,S*zFactor/pixZ];
                     IMs = imgaussfilt3(currData, sigma);
+                    %new code
+%                     IMs = IMs-min(IMs);
+%                     IMs(IMs<0) = 0;
                     disp('DONE with filtering ------------')
-                    if median(IMs(:)) ==0
-                        sig = IMs(IMs>0.1);
+                    if median(IMs(:)) <4
+                        sig = IMs(IMs>median(IMs(:))+0.1);
                         th = std(sig)/2; 
                         
                     else
@@ -405,7 +408,7 @@ classdef fiberRemodelling < handle
 
 
                 p3 = patch(iSurface);
-                p3.FaceColor = [0.7 0 0];
+                p3.FaceColor = [0.5 0.5 0.5];
                 p3.FaceAlpha = 0.3;
                 p3.EdgeColor = 'none';
 
@@ -557,9 +560,7 @@ classdef fiberRemodelling < handle
             cellMask = obj.results.cellMask;
             polymerMask = obj.results.polymerMask;
             holeMask    = obj.results.holeMask;
-            cellChan = obj.channels.cell;
-            polChan = obj.channels.polymer;
-            
+             
             %memory preallocation
             stats.cellVol = zeros(size(cellMask,2),size(cellMask{1},4));
             stats.polVol  = zeros(size(cellMask,2),size(cellMask{1},4));
@@ -582,10 +583,14 @@ classdef fiberRemodelling < handle
             
             voxelSize = pxSize^2*pxSizeZ;
             for j = 1:size(cellMask,2)
+                cellChan = obj.channels(j).cell;
+                polChan = obj.channels(j).polymer;
                 for i = 1:size(cellMask{1},4)
                     currentCellM = cellMask{j}(:,:,:,i);
                     currentPolM  = polymerMask{j}(:,:,:,i);
                     currentHoleM = holeMask{j}(:,:,:,i);
+
+
                     
                     currentCell = cellChan(:,:,:,i);
                     currentPol  = polChan(:,:,:,i); 
