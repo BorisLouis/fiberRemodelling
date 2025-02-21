@@ -518,20 +518,20 @@ classdef fiberRemodelling < handle
                 iSurface = isosurface(data2Render,1/2);
                 %% Displaying network model
 
-
+                %Cell hole
                 p3 = patch(iSurface);
-                p3.FaceColor = [0.5 0.5 0.5];
-                p3.FaceAlpha = 0.3;
+                p3.FaceColor =[0.7 0 0] ;
+                p3.FaceAlpha = 0.5;
                 p3.EdgeColor = 'none';
 
                 
                 %% displaying gap
                 data2Render = obj.results.polymerMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-
+                %polymer
                 p4 = patch(iSurface);
-                p4.FaceColor = [0.7 0 0];
-                p4.FaceAlpha = 0.5;
+                p4.FaceColor = [0.5 0.5 0.5];
+                p4.FaceAlpha = 0.3;
                 p4.EdgeColor = 'none';
 
                 view(3);
