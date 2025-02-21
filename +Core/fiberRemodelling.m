@@ -533,13 +533,7 @@ classdef fiberRemodelling < handle
                 p4.FaceColor = [0.7 0 0];
                 p4.FaceAlpha = 0.5;
                 p4.EdgeColor = 'none';
-                
-                
-                
-                
-                
-                
-                
+
                 view(3);
                 axis tight
                 camlight
@@ -547,9 +541,9 @@ classdef fiberRemodelling < handle
                 title(['Data ' num2str(i)]);
                 
                 set(gcf,'Color','w')
-                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.fig'];
+                filename = [obj.raw.path filesep 'Figures' filesep 'All_0' num2str(i) '.fig'];
                 saveas(gcf,filename)
-                filename = [obj.raw.path filesep 'Figures' filesep 'Cell_Pol_0' num2str(i) '.png'];
+                filename = [obj.raw.path filesep 'Figures' filesep 'All_0' num2str(i) '.png'];
                 saveas(gcf,filename)
                 
             end
