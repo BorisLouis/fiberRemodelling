@@ -502,7 +502,7 @@ classdef fiberRemodelling < handle
                     end
 %                   % keep only region that overlap with the cell  
                     bwL = bwlabeln(bwMask);
-
+                    overlap = zeros(max(bwL(:)),1);
                     for k = 1:max(bwL(:))
                         
                         im = zeros(size(bwL));
@@ -513,13 +513,14 @@ classdef fiberRemodelling < handle
 
 
                     end
+                    assert(~all(overlap==0),'No overlap found between cell and gap, please check');
                     fMask = zeros(size(bwL));
                     [val,id] = max(overlap);
                     fMask(bwL==id) = 1;
                     
-                    overlapRegion = fMask+currCellMask;
-                    overlapRegion(overlapRegion<2) = 0;
-                    overlapRegion(overlapRegion==2) = 1;
+%                     overlapRegion = fMask+currCellMask;
+%                     overlapRegion(overlapRegion<2) = 0;
+%                     overlapRegion(overlapRegion==2) = 1;
 
                     % GET DISTANCE MAP TO FIND CENTER AND SHAPE
                     distM = DistMap.calcWeightedDistMap(~fMask,[1 1 1]);
