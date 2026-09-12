@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite both the repository
+  using its Zenodo DOI and the associated paper listed below.
+type: software
+title: "fiberRemodelling"
+authors:
+  - family-names: "Louis"
+    given-names: "Boris"
+repository-code: "https://github.com/BorisLouis/fiberRemodelling"
+
+references:
+  - type: article
+    title: >-
+      Synthetic fibrous hydrogels as a platform to decipher
+      cell–matrix mechanical interactions
+    authors:
+      - family-names: "Yuan"
+        given-names: "Hongbo"
+      - family-names: "Liu"
+        given-names: "Kaizheng"
+      - family-names: "Cóndor"
+        given-names: "Mar"
+      - family-names: "Barrasa-Fano"
+        given-names: "Jorge"
+      - family-names: "Louis"
+        given-names: "Boris"
+      - family-names: "Vandaele"
+        given-names: "Johannes"
+      - family-names: "de Almeida"
+        given-names: "Paula"
+      - family-names: "Coucke"
+        given-names: "Quinten"
+      - family-names: "Chen"
+        given-names: "Wen"
+      - family-names: "Oosterwijk"
+        given-names: "Egbert"
+      - family-names: "Xing"
+        given-names: "Chengfen"
+      - family-names: "Van Oosterwyck"
+        given-names: "Hans"
+      - family-names: "Kouwer"
+        given-names: "Paul H. J."
+      - family-names: "Rocha"
+        given-names: "Susana"
+    journal: "Proceedings of the National Academy of Sciences"
+    volume: "120"
+    issue: "15"
+    article-number: "e2216934120"
+    year: 2023
+    month: 4
+    doi: "10.1073/pnas.2216934120"
