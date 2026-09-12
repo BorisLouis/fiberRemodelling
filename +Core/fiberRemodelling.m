@@ -230,12 +230,9 @@ classdef fiberRemodelling < handle
                 % smoothing using compiled c code
              %   smoothISurface = rendering3D.smoothpatch(iSurface,0,10);
                 %comnvert to px
-               iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-               iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-               iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
-%                iSurface.faces(:,1) = (iSurface.faces(:,1))*obj.info.pxSizeXY/1000;%um
-%                iSurface.faces(:,2) = (iSurface.faces(:,2))*obj.info.pxSizeXY/1000;
-%                iSurface.faces(:,3) = (iSurface.faces(:,3))*obj.info.pxSizeZ/1000;
+              %  smoothISurface.vertices(:,1) = (smoothISurface.vertices(:,1));
+               % smoothISurface.vertices(:,2) = (smoothISurface.vertices(:,2));
+                %smoothISurface.vertices(:,3) = (smoothISurface.vertices(:,3));
 
                 %% Displaying network model
                 %z-coloring
@@ -382,9 +379,6 @@ classdef fiberRemodelling < handle
                 disp(['Rendering Cell ' num2str(i) ' / ' num2str(size(obj.results.cellMask,2))]) 
                 data2Render = obj.results.cellMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-                iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-                iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-                iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
 
                 % smoothing using compiled c code
     %             cellsmoothISurface = rendering3D.smoothpatch(iSurface,0,10);
@@ -402,11 +396,7 @@ classdef fiberRemodelling < handle
 
                 data2Render = obj.results.polymerMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-                if ~isempty(iSurface.vertices)
-                    iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-                    iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-                    iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
-                end
+
                 % smoothing using compiled c code
     %             polsmoothISurface = rendering3D.smoothpatch(iSurface,0,1);
     %             %comnvert to px
@@ -461,131 +451,41 @@ classdef fiberRemodelling < handle
                     pixZ  = 4;
                     zFactor = 2;
                     sigma = [2,2,2*zFactor/pixZ];
-
-                    %EDIT
-                    currData = imcomplement(uint8(currData));
-
                     IMs = imgaussfilt3(currData, sigma);
-%                      filt = imgradient3(IMs);
-                    im = IMs;
-           
-                    
-                    im = double(im-median(im(:)));
-                    im = im./max(im(:));
-                    im(im<0) = 0;
-                    bwfilt = uint8(ceil(im));
-                  %  bwfilt = uint8(round(im));
-
-
+                    filt = imgradient3(IMs);
                     %threwsholding
-%                     th = adaptthresh(filt./max(filt(:)),0.8,'neigh',[101 101 51],'Fore','bright');
-%                     bwfilt = imbinarize(filt./max(filt(:)),th);
+                    th = adaptthresh(filt./max(filt(:)),0.8,'neigh',[101 101 51],'Fore','bright');
+                    bwfilt = imbinarize(filt./max(filt(:)),th);
 
-%                     se = strel('disk',5);
-%                     bwfilt = imclose(bwfilt,se);
-% 
-%                     bwfilt = ~bwfilt;
+                    se = strel('disk',5);
+                    bwfilt = imclose(bwfilt,se);
+
+                    bwfilt = ~bwfilt;
                     
                     %remove small object in 2D
                     for k=1:size(bwfilt,3)
-                        bwfilt(:,:,k) = bwareaopen(bwfilt(:,:,k),50);
+                        bwfilt(:,:,k) = bwareaopen(bwfilt(:,:,k),200);
                         
                     end
-                    %EDIT HAOXIANG
-                    se = strel('disk',5);
-                    bwfilt = imclose(bwfilt,se);
-                    bwMask = logical(bwfilt);
-
-                    for k=1:size(bwMask,3)
-                        bwMask(:,:,k) = bwareaopen(bwMask(:,:,k),200);
-                        
-                    end
-%                   % keep only region that overlap with the cell  
-                    bwL = bwlabeln(bwMask);
-                    overlap = zeros(max(bwL(:)),1);
-                    for k = 1:max(bwL(:))
-                        
-                        im = zeros(size(bwL));
-                        im(bwL==k) = 1;
-                        
-                        toSum = im.*currCellMask;
-                        overlap(k) = sum(toSum(:));
-
-
-                    end
-                    assert(~all(overlap==0),'No overlap found between cell and gap, please check');
-                    fMask = zeros(size(bwL));
-                    [val,id] = max(overlap);
-                    fMask(bwL==id) = 1;
                     
-%                     overlapRegion = fMask+currCellMask;
-%                     overlapRegion(overlapRegion<2) = 0;
-%                     overlapRegion(overlapRegion==2) = 1;
-
-                    % GET DISTANCE MAP TO FIND CENTER AND SHAPE
-                    distM = DistMap.calcWeightedDistMap(~fMask,[1 1 1]);
-
-                    [val,ind] = max(distM(:));
-
-                    [row,col,z] = ind2sub(size(distM),ind);
-
-                    threshold = val.*0.5;
-                    %BINARIZE DISTANCE MAP TO FIND SHAPE
-                    bwDist = distM>threshold;
-
-                    stats = regionprops3(bwDist,'Volume','VoxelIdxList','Extent');
+                  
+                    
+                    %extract largest
+                    stats = regionprops3(bwfilt,'Volume','VoxelIdxList','Extent');
                     [~,idx] = max(stats.Volume.*stats.Extent.^2);
                     idxList = stats.VoxelIdxList{idx,:};
- 
-                    bwD = zeros(size(bwDist));
-                    %PROGRESSIVELY ENLARGE THE SHAPE AND SEE IF THE VOLUME
-                    %SCALE
-                    bwD(idxList) = 1;
-                    bwN =bwD;
-                    se = strel('sphere',3);
-                    bwN = imdilate(bwD,se);
-                    
-                    for k = 1:50
-                       
-                        
-                       M = bwN-bwD;
 
-                        sumM(k) = sum(bwMask(logical(M(:))))./sum(M(:));
+                    bwMask = zeros(size(bwfilt));
 
+                    bwMask(idxList) = 1;
 
-
-                        if sumM(k)<0.9
-                           
-                            cM = imfill(bwN,'holes');
-                            break;
-
-                        end
-            
-                        se = strel('sphere',3);
-                        bwD = imdilate(bwD,se);
-                        bwN = imdilate(bwN,se);
-
-                    end
-
-  
-%                     stats = regionprops3(bwfilt,'Volume','VoxelIdxList','Extent');
-%                     [~,idx] = max(stats.Volume.*stats.Extent.^2);
-%                     idxList = stats.VoxelIdxList{idx,:};
-% 
-%                     bwMask = zeros(size(bwfilt));
-% 
-%                     bwMask(idxList) = 1;
-% 
-%                     se = strel('disk',3);
-%                     bwMask = imdilate(bwMask,se);
-                    bwMask = bwMask.*bwN;
+                    se = strel('disk',3);
+                    bwMask = imdilate(bwMask,se);
                     finalM = bwMask - currCellMask;
                     finalM(finalM<0)= 0;
                     allMask(:,:,:,i) = finalM;
                     
                     masks{j} = logical(allMask);
-
-                   
 %                 
 %                 figure
 %                 imagesc(bwMask(:,:,100));
@@ -609,9 +509,6 @@ classdef fiberRemodelling < handle
                 disp(['Rendering Cell ' num2str(i) ' / ' num2str(size(obj.results.cellMask,2))]) 
                 data2Render = obj.results.cellMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-                iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-                iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-                iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
 
                 figure
                 hold on
@@ -622,11 +519,6 @@ classdef fiberRemodelling < handle
               
                 data2Render = obj.results.holeMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-                if ~isempty(iSurface.vertices)
-                    iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-                    iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-                    iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
-                end
                 %% Displaying network model
 
                 %Cell hole
@@ -639,12 +531,6 @@ classdef fiberRemodelling < handle
                 %% displaying gap
                 data2Render = obj.results.polymerMask{i}(:,:,:,idx);
                 iSurface = isosurface(data2Render,1/2);
-                if ~isempty(iSurface.vertices)
-                    iSurface.vertices(:,1) = (iSurface.vertices(:,1))*obj.info.pxSizeXY/1000;%um
-                    iSurface.vertices(:,2) = (iSurface.vertices(:,2))*obj.info.pxSizeXY/1000;
-                    iSurface.vertices(:,3) = (iSurface.vertices(:,3))*obj.info.pxSizeZ/1000;
-                end
-                
                 %polymer
                 p4 = patch(iSurface);
                 p4.FaceColor = [0.5 0.5 0.5];
@@ -1065,35 +951,27 @@ classdef fiberRemodelling < handle
             nSeries = size(data,1);
             for i = 1: nSeries
                 Misc.multiWaitbar('Channel Extraction',i/nSeries);
-                %get data
                 currData = data{i}(:,1);
-                nameData = data{i}(:,2);
-                %extract number of channel
+                nameData = data{i}(1,2);
+                
                 idx = strfind(nameData{1}, 'C=1/');
                 nChan = str2double(nameData{1}(idx+4:end));
-                
-                lengthData = size(currData,1)/nChan;
 
-                cellChan = zeros(size(currData{1},1),size(currData{1},2),lengthData);
-                polChan  = cellChan;
-
-                polIdx  = 1;
-                cellIdx = 1;
-                for j = 1:length(currData)
-                    isCellChan = ~isempty(strfind(nameData{j}, ['C=' num2str(idCell) '/']));
-                    isPolChan  = ~isempty(strfind(nameData{j}, ['C=' num2str(idPol) '/']));
-
-                    if isCellChan
-                        cellChan(:,:,cellIdx) = currData{j};
-                        cellIdx = cellIdx + 1;
-
-                    end
-                    if isPolChan
-                        polChan(:,:,polIdx)  = currData{j};
-                        polIdx = polIdx +1;
-                    end
+                %assign cell and polymer channel based on user input 
+                idx2Cell = idCell:nChan:size(currData,1);
+                idx2Pol  = idPol:nChan:size(currData,1);
+               
                     
-                    Misc.multiWaitbar('Frames',j/length(currData));
+                currCellChan = currData(idx2Cell);
+                currPolChan = currData(idx2Pol);
+                cellChan = zeros(size(currData{1},1),size(currData{1},2),length(currCellChan));
+                polChan  = cellChan;
+                for j = 1:length(currCellChan)
+                    
+                    cellChan(:,:,j) = currCellChan{j};
+                    polChan(:,:,j)  = currPolChan{j};
+                    
+                    Misc.multiWaitbar('Frames',j/length(currCellChan));
                 end
                    
                 channel(i).cell    = cellChan; %normalizing factor
